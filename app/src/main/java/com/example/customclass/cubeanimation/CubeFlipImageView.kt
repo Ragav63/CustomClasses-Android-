@@ -27,19 +27,8 @@ class CubeFlipImageView @JvmOverloads constructor(
     private var autoFlipTimer: Timer? = null
     private var autoFlipInterval = 3000L
 
-    /**
-     * Provide a list of images with optional overlays.
-     */
-    fun setImageList(items: List<ImageItem>) {
-        images = items
-        currentIndex = 0
-        if (images.isNotEmpty()) {
-            loadFrontImage(images[0])
-            if (images.size > 1) {
-                loadBackImage(images[1 % images.size])
-            }
-        }
-    }
+
+
 
     private fun loadFrontImage(item: ImageItem) {
         Glide.with(context).load(item.imageUrl).into(binding.frontImage)
