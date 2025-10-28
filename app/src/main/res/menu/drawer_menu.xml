@@ -1,0 +1,33 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/calenderViewFragment"
+        android:title="Calendar View"
+        android:icon="@drawable/outline_calendar_month_24" />
+
+    <item
+        android:id="@+id/customRatingBarFragment"
+        android:title="Custom Rating Bar"
+        android:icon="@drawable/outline_18_up_rating_24" />
+
+    <item
+        android:id="@+id/dynamicImageFragment"
+        android:title="Dynamic Image"
+        android:icon="@drawable/outline_format_image_right_24" />
+
+    <item
+        android:id="@+id/panaromaViewFragment"
+        android:title="Panorama View"
+        android:icon="@drawable/outline_vrpano_24" />
+
+    <item
+        android:id="@+id/swipeUnlockFragment"
+        android:title="Swipe Unlock"
+        android:icon="@drawable/outline_swipe_24" />
+
+    <item
+        android:id="@+id/cubeFragment"
+        android:title="Cube Animation"
+        android:icon="@drawable/cubeanimation512px" />
+
+</menu>

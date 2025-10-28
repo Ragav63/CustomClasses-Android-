@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/cubeFragment">
+
+    <fragment
+        android:id="@+id/calenderViewFragment"
+        android:name="com.example.customclass.calendar.CalenderViewFragment"
+        android:label="fragment_calender_view"
+        tools:layout="@layout/fragment_calender_view" />
+    <fragment
+        android:id="@+id/customRatingBarFragment"
+        android:name="com.example.customclass.ratingbar.CustomRatingBarFragment"
+        android:label="fragment_custom_rating_bar"
+        tools:layout="@layout/fragment_custom_rating_bar" />
+    <fragment
+        android:id="@+id/dynamicImageFragment"
+        android:name="com.example.customclass.dynamicimage.DynamicImageFragment"
+        android:label="fragment_dynamic_image"
+        tools:layout="@layout/fragment_dynamic_image" />
+    <fragment
+        android:id="@+id/panaromaViewFragment"
+        android:name="com.example.customclass.panorama.PanaromaViewFragment"
+        android:label="fragment_panaroma_view"
+        tools:layout="@layout/fragment_panaroma_view" />
+    <fragment
+        android:id="@+id/swipeUnlockFragment"
+        android:name="com.example.customclass.swipebehaviours.SwipeUnlockFragment"
+        android:label="fragment_swipe_unlock"
+        tools:layout="@layout/fragment_swipe_unlock" />
+    <fragment
+        android:id="@+id/cubeFragment"
+        android:name="com.example.customclass.cubeanimation.CubeFragment"
+        android:label="fragment_cube"
+        tools:layout="@layout/fragment_cube" />
+</navigation>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="CustomRatingBar">
+        <attr name="numStars" format="integer" />
+        <attr name="stepSize" format="float" />
+        <attr name="rating" format="float" />
+        <attr name="starTint" format="color" />
+    </declare-styleable>
+</resources>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="SwipeToActionView">
+        <attr name="originalBackground" format="reference|color"/>
+        <attr name="successBackground" format="reference|color"/>
+        <attr name="thresholdPercentage" format="float"/>
+        <attr name="swipeDirection" format="enum">
+            <enum name="leftToRight" value="0"/>
+            <enum name="rightToLeft" value="1"/>
+        </attr>
+        <attr name="startIconTint" format="color"/>
+        <attr name="endIconTint" format="color"/>
+        <attr name="textColor" format="color"/>
+        <attr name="trackBackground" format="reference"/>
+    </declare-styleable>
+</resources>
