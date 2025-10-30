@@ -37,11 +37,11 @@ class DynamicImageFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         val images = listOf(
-            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/7369b10d-77e4-4174-adf3-0e78334e4937.jpg?sv=2025-05-05&se=2025-09-07T05%3A39%3A53Z&sr=b&sp=r&sig=NPbaJX5pZifrX86O0yFTXABdnYUhHwJRYXy12IM2m%2F0%3D",
-            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/d8556e75-cb30-43bb-8c8f-df9fd85cb004.jpg?sv=2025-05-05&se=2025-09-07T05%3A39%3A53Z&sr=b&sp=r&sig=89yD0AHxRqs9CrFV8hZz5JyxRErWHidaU%2BfyiEIH14M%3D",
-            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/07380dde-0ef6-4808-b10b-413f3b61dbf9.jpg?sv=2025-05-05&se=2025-09-07T05%3A39%3A53Z&sr=b&sp=r&sig=9NuNs8aXtjHlHE9h32yih83K6jgE5I%2BHAFOKfqBMSQs%3D",
-            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/ed10da4c-aa21-4987-85f2-c68978d99351.jpg?sv=2025-05-05&se=2025-09-07T05%3A39%3A53Z&sr=b&sp=r&sig=slNZ%2B%2F2HGKR05E7plX65FuLtZC86uu9ymu3FRrCPSOQ%3D",
-            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/R00002/d8431959-477d-400b-acdb-93f5f7de67bc.png?sv=2025-05-05&se=2025-09-07T05%3A39%3A53Z&sr=b&sp=r&sig=WbYCKB%2BY3Q3b8INIkW%2FyxBkG%2BYjDxIx5SZFCm2cRI9w%3D",
+            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/7369b10d-77e4-4174-adf3-0e78334e4937.jpg",
+            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/d8556e75-cb30-43bb-8c8f-df9fd85cb004.jpg",
+            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/07380dde-0ef6-4808-b10b-413f3b61dbf9.jpg",
+            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/ed10da4c-aa21-4987-85f2-c68978d99351.jpg",
+            "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/R00002/d8431959-477d-400b-acdb-93f5f7de67bc.png",
             "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/R00002/9159356c-d0a9-4ffc-a081-8fde59be6cfd.png?sv=2025-05-05&se=2025-09-07T05%3A39%3A53Z&sr=b&sp=r&sig=rNQmyYHZWmCs0sywhBhLSM1lKMzrizcvfxUG5C0T4R4%3D",
             "https://storagehotelbooking.blob.core.windows.net/hotel-images/H00037/R00002/1c5ef5b8-f34e-47a6-8e60-05b310ab5b9e.jpg?sv=2025-05-05&se=2025-09-07T05%3A39%3A53Z&sr=b&sp=r&sig=6Vmpjz84O8whK6rbMcN5lPxIl1PaEI6TW3MXfX7n59s%3D",
 
