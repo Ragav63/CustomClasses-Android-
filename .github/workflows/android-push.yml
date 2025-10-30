@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write  # Required for creating GitHub releases
+
 jobs:
   build:
     name: Build on Push
@@ -32,10 +35,11 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Create GitHub Release
+        if: success()
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v1.${{ github.run_number }}
-          name: Release v1.${{ github.run_number }}
+          tag_name: v${{ github.run_number }}
+          name: "Release v${{ github.run_number }}"
           files: app/build/outputs/apk/debug/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
