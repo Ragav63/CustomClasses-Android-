@@ -13,4 +13,24 @@
         <attr name="textColor" format="color"/>
         <attr name="trackBackground" format="reference"/>
     </declare-styleable>
+
+    <declare-styleable name="CubeBannerView">
+        <!-- Banner Layout -->
+        <attr name="bannerMarginTop" format="dimension" />
+        <attr name="bannerMarginHorizontal" format="dimension" />
+        <attr name="bannerHeight" format="dimension" />
+        <attr name="cornerRadius" format="dimension" />
+
+        <!-- Button Attributes -->
+        <attr name="buttonText" format="string" />
+        <attr name="buttonTextColor" format="color" />
+        <attr name="buttonBackgroundColor" format="color" />
+        <attr name="buttonTextSize" format="dimension" />
+        <attr name="buttonAllCaps" format="boolean" />
+        <attr name="buttonBold" format="boolean" />
+
+        <!-- Greeting Attributes -->
+        <attr name="greetingTextSize" format="dimension" />
+        <attr name="greetingTextColor" format="color" />
+    </declare-styleable>
 </resources>
