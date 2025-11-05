@@ -35,7 +35,8 @@ class MainActivity : AppCompatActivity() {
                 R.id.customRatingBarFragment,
                 R.id.dynamicImageFragment,
                 R.id.panaromaViewFragment,
-                R.id.swipeUnlockFragment
+                R.id.swipeUnlockFragment,
+                R.id.cubeFragment
             ),
             binding.drawerLayout
         )
