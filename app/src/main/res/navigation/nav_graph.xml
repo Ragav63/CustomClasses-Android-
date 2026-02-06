@@ -35,4 +35,9 @@
         android:name="com.example.customclass.cubeanimation.CubeFragment"
         android:label="fragment_cube"
         tools:layout="@layout/fragment_cube" />
+    <fragment
+        android:id="@+id/hotelCalendarFragment"
+        android:name="com.example.customclass.hotelCalendar.HotelCalendarFragment"
+        android:label="fragment_hotel_calendar"
+        tools:layout="@layout/fragment_hotel_calendar" />
 </navigation>

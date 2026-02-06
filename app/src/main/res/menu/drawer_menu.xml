@@ -6,6 +6,11 @@
         android:icon="@drawable/outline_calendar_month_24" />
 
     <item
+        android:id="@+id/hotelCalendarFragment"
+        android:title="Hotel Calendar"
+        android:icon="@drawable/outline_calendar_month_24" />
+
+    <item
         android:id="@+id/customRatingBarFragment"
         android:title="Custom Rating Bar"
         android:icon="@drawable/outline_18_up_rating_24" />

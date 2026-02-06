@@ -19,8 +19,10 @@ class CubeAnimation private constructor(
         fun create(direction: Int, enter: Boolean, duration: Long): CubeAnimation {
             return CubeAnimation(direction, enter).apply {
                 setDuration(duration)
+                fillAfter = true        // 🔥 critical
             }
         }
+
     }
 
     private val camera = Camera()
@@ -67,7 +69,7 @@ class CubeAnimation private constructor(
                 // Horizontal animation
                 pivotX = if (enter == (direction == LEFT)) 0.0f else width.toFloat()
                 pivotY = height * 0.5f
-                cameraZ = -width * 0.015f
+                cameraZ = -width * 1.5f
             }
         }
     }

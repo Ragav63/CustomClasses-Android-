@@ -1,21 +1,24 @@
-package com.example.customclass.calendar
+package com.example.customclass.hotelCalendar
 
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
-import com.example.customclass.databinding.Item1CalendarMonthBinding
+import com.example.customclass.hotelCalendar.OnCanvasDateRangeSelectedListener
+import com.example.customclass.databinding.ItemCalendarMonthBinding
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
+import java.util.Locale
 import kotlin.apply
 
-class MonthAdapter(
+class CalendarMonthAdapter(
     private val months: List<Calendar>,
+    private val config: CalendarConfig,
     private val onDateRangeSelectedListener: OnCanvasDateRangeSelectedListener,
-    private val selectedDayColorResId: Int,
-    private val rangeBackgroundColorResId: Int,
-    private val dayTextColorResId: Int,
-    private val dateLabelColorResId: Int
-) : RecyclerView.Adapter<MonthAdapter.MonthViewHolder>() {
+    private val showWeekdaysInsideMonth: Boolean
+) : RecyclerView.Adapter<CalendarMonthAdapter.MonthViewHolder>()
+ {
 
     private var selectedStartDate: Date? = null
     private var selectedEndDate: Date? = null
@@ -38,7 +41,7 @@ class MonthAdapter(
 
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MonthViewHolder {
-        val binding = Item1CalendarMonthBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val binding = ItemCalendarMonthBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return MonthViewHolder(binding)
     }
 
@@ -51,16 +54,14 @@ class MonthAdapter(
             selectedEndDate,
             onDateRangeSelectedListener,
             labelsForMonth,
-            selectedDayColorResId,
-            rangeBackgroundColorResId,
-            dayTextColorResId,
-            dateLabelColorResId
+            config,
+            showWeekdaysInsideMonth
         )
     }
 
     override fun getItemCount(): Int = months.size
 
-    class MonthViewHolder(private val binding: Item1CalendarMonthBinding) : RecyclerView.ViewHolder(binding.root) {
+    class MonthViewHolder(private val binding: ItemCalendarMonthBinding) : RecyclerView.ViewHolder(binding.root) {
 
         // Helper to normalize a date to start of day, essential for consistent map keys
         private fun Date.normalizeDate(): Date {
@@ -78,31 +79,19 @@ class MonthAdapter(
             endDate: Date?,
             listener: OnCanvasDateRangeSelectedListener,
             labels: List<DateLabel>,
-            selectedDayColorResId: Int,
-            rangeBackgroundColorResId: Int,
-            dayTextColorResId: Int,
-            dateLabelColorResId: Int
+            config: CalendarConfig,
+            showWeekdaysInsideMonth: Boolean
         ) {
-            binding.calendarCanvasView.displayedMonth = monthCalendar
-            binding.calendarCanvasView.selectedStartDate = startDate
-            binding.calendarCanvasView.selectedEndDate = endDate
-            //binding.calendarCanvasView.invalidate()
-
-            // It's crucial that each CalendarCanvasView instance reports back to the central listener
-            // which in turn updates the adapter and other views.
-            binding.calendarCanvasView.onDateRangeSelectedListener = listener
-
             binding.calendarCanvasView.apply {
-                // Set fixed colors for selection and range background
-                setSelectedDayColor(selectedDayColorResId)
-                setRangeBackgroundColor(rangeBackgroundColorResId)
-                setDayTextColor(dayTextColorResId)
-                setDateLabelColor(dateLabelColorResId)
+                displayedMonth = monthCalendar
+                selectedStartDate = startDate
+                selectedEndDate = endDate
+                onDateRangeSelectedListener = listener
+                showWeekdayLabels = showWeekdaysInsideMonth
+
+                applyConfig(config)
+                setDateLabels(labels)
             }
-
-
-            // Apply the pre-calculated labels
-            binding.calendarCanvasView.setDateLabels(labels)
         }
     }
 

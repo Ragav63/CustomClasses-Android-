@@ -5,19 +5,10 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/tvMonthLabel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:textSize="16sp"
-        android:textStyle="bold"/>
-
-
-    <com.example.customclass.hotelCalendar.CalendarCanvasView
+    <com.example.customclass.calendar.CalendarCanvasView
         android:id="@+id/calendarCanvasView"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="400dp"
         android:padding="5dp" />
 
 </LinearLayout>
