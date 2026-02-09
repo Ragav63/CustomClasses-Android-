@@ -7,243 +7,128 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.util.AttributeSet
+import android.util.TypedValue
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.ContextCompat
-import com.example.customclass.R
 import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-import kotlin.apply
-import kotlin.collections.forEach
-import kotlin.collections.map
-import kotlin.collections.set
-import kotlin.let
+import java.util.*
 import kotlin.math.min
-import kotlin.ranges.coerceAtMost
-import kotlin.ranges.until
-
-// Interface for communicating date selections
-interface OnCanvasDateRangeSelectedListener {
-    fun onDateRangeSelected(startDate: Date, endDate: Date)
-    fun onDateSelectionChanged(startDate: Date?, endDate: Date?)
-
-    fun onInvalidDateSelected(date: Date) {}
-    fun onMonthDisplayed(month: Calendar) {}
-    fun onDateSelectionCancelled() {}
-}
-
-
-// Data class to hold custom text and its color for a specific date
-data class DateLabel(val date: Date, val text: String)
-
 
 class CalendarCanvasView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : View(context, attrs,  defStyleAttr) {
+) : View(context, attrs, defStyleAttr) {
 
-    private val calendarDayTextSize: Float
-        get() = if (resources.configuration.smallestScreenWidthDp >= 600) {
-            16.spToPx() // Tablet
-        } else {
-            14.spToPx() // Mobile
+    // Fixed: Properly initialize config
+    private var _config = CalendarConfig()
+    var config: CalendarConfig = _config
+        set(value) {
+            field = value
+            applyConfig(value)
         }
-
-    private val calendarDateLabelTextSize: Float
-        get() = if (resources.configuration.smallestScreenWidthDp >= 600) {
-            14.spToPx() // Tablet
-        } else {
-            12.spToPx() // Mobile
-        }
-
-    private val calendarHeaderTextSize = 12.spToPx()
-    private val calendarWeekdayTextSize = 12.spToPx()
-    private val headerBottomMargin = 4.spToPx()
-    private val minHeaderToDatesSpacing = 16f // dp converted to px if needed
-
-    // Color values
-    private val defaultDayTextColor = Color.BLACK
-    private val defaultDateLabelColor = Color.BLACK
-    private val defaultSelectedDayColor = Color.parseColor("#6200EE")   // Material primary color
-    private val defaultHeaderColor = Color.DKGRAY
-    private val defaultWeekDayColor = Color.GRAY
-    private val todayColor = Color.parseColor("#03DAC6") // Teal
-    private val disabledDateColor = Color.parseColor("#BDBDBD") // Grey
-
-    private var rangeEdgeTextColor: Int = Color.WHITE
-    private var rangeMiddleTextColor: Int = Color.WHITE
-    private var rangeTextColor: Int = Color.WHITE
-    private val defaultRangeBackgroundColor = Color.parseColor("#E3F2FD") // Light blue
-
-    private val selectedCircleScale = 0.55f   // 👈 controls size
-    private val selectedCornerRadiusScale = 0.45f
-
-
-    private var weekdayFormat: WeekdayFormat = WeekdayFormat.FULL
-
 
     // Extension function to convert sp to px
-    private fun Int.spToPx(): Float {
-        return this * resources.displayMetrics.scaledDensity
-    }
-    private val dayTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.BLACK
-        textSize = calendarDayTextSize
-        textAlign = Paint.Align.CENTER
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    private fun Float.spToPx(): Float {
+        return TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            this,
+            resources.displayMetrics
+        )
     }
 
-    // NEW: Paint for the custom date labels
+    private fun Float.dpToPx(): Float {
+        return TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            this,
+            resources.displayMetrics
+        )
+    }
+
+    // Paint objects
+    private val dayTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+    }
+
     private val dateLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.BLACK
-        textSize = calendarDateLabelTextSize
         textAlign = Paint.Align.CENTER
     }
 
     private val selectedDayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = defaultSelectedDayColor
         style = Paint.Style.FILL
     }
 
     private val rangeBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = defaultRangeBackgroundColor
         style = Paint.Style.FILL
     }
 
     private val headerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.DKGRAY
-        textSize = calendarHeaderTextSize
         textAlign = Paint.Align.CENTER
-        setTypeface(Typeface.DEFAULT_BOLD)
     }
 
     private val weekDayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.GRAY
-        textSize = calendarWeekdayTextSize
         textAlign = Paint.Align.CENTER
     }
 
-    var showWeekdayLabels: Boolean = false
+    private var cellWidth = 0f
+    private var cellHeight = 0f
+
+    // Fixed: Use stored config instead of accessing it directly in getters
+    private val headerHeight: Float
+        get() = _config.monthHeaderAppearance.textSizeSP.spToPx() * 1.8f +
+                _config.headerBottomMarginDP.dpToPx()
+
+    private val weekdaysHeaderHeight: Float
+        get() = _config.weekdayAppearance.textSizeSP.spToPx() * 1.6f
+
+    private val dateLabelTopMargin: Float
+        get() = _config.dateLabelTopMarginDP.dpToPx()
+
+    // Layout variables
+    var showWeekdayLabels: Boolean = _config.showWeekdaysInsideMonth
         set(value) {
             field = value
             requestLayout()
             invalidate()
         }
 
-    // This will now be set externally for each month.
-    // The `set` block below handles the logic that was in the redundant `setDisplayedMonth` function.
     var displayedMonth: Calendar = Calendar.getInstance()
         set(value) {
-            field = value.clone() as Calendar // Clone to ensure the original Calendar object isn't modified
-            field.set(Calendar.DAY_OF_MONTH, 1) // Ensure it's the first of the month
-            onDateRangeSelectedListener?.onMonthDisplayed(field) // Notify about the displayed month
-            invalidate() // Redraw when the month changes
+            field = value.clone() as Calendar
+            field.set(Calendar.DAY_OF_MONTH, 1)
+            onDateRangeSelectedListener?.onMonthDisplayed(field)
+            invalidate()
             requestLayout()
         }
 
-    // New: Allow setting the selected range from outside
     var selectedStartDate: Date? = null
         set(value) {
-            field = value?.normalizeDate() // Normalize when setting
+            field = value?.normalizeDate()
             invalidate()
         }
 
     var selectedEndDate: Date? = null
         set(value) {
-            field = value?.normalizeDate() // Normalize when setting
+            field = value?.normalizeDate()
             invalidate()
         }
 
-    var monthLabelAlignment: MonthLabelAlignment = MonthLabelAlignment.CENTER
+    var monthLabelAlignment: MonthLabelAlignment = _config.monthLabelAlignment
         set(value) {
             field = value
             invalidate()
         }
 
-    // Removed the `private val currentMonth` as it's redundant now.
-
     private var minSelectableDate: Date? = null
     private var maxSelectableDate: Date? = null
 
     var onDateRangeSelectedListener: OnCanvasDateRangeSelectedListener? = null
-
-    // NEW: Map to store custom labels for dates (Date -> DateLabel)
     private val customDateLabels = mutableMapOf<Date, DateLabel>()
 
-    // Corrected format for year "y" and then "MMMM" for full month name
+    // Formatting
     private val dateFormatMonthYear = SimpleDateFormat("MMMM y", Locale.getDefault())
-    private val dayOfWeekFormat = SimpleDateFormat("EEE", Locale.getDefault()) // "E" for abbreviated day, "EEEEE" for narrow
-
-    fun Int.toWeekdayFormat(): WeekdayFormat {
-        return when (this) {
-            1 -> WeekdayFormat.ONE_LETTER
-            2 -> WeekdayFormat.TWO_LETTER
-            3 -> WeekdayFormat.THREE_LETTER
-            else -> WeekdayFormat.FULL // 0 or garbage input
-        }
-    }
-
-    fun applyConfig(config: CalendarConfig) {
-        setWeekdayFormat(config.weekdayFormat)
-        monthLabelAlignment = config.monthLabelAlignment
-
-        dayTextPaint.color = config.dayTextColor
-        dateLabelPaint.color = config.dateLabelColor
-        headerPaint.color = config.headerTextColor
-        weekDayPaint.color = config.weekdayTextColor
-
-        selectedDayPaint.color = config.selectedDayColor
-        rangeBackgroundPaint.color = config.rangeBackgroundColor
-        rangeEdgeTextColor = config.rangeEdgeTextColor
-        rangeMiddleTextColor = config.rangeMiddleTextColor
-
-        invalidate()
-    }
-
-    fun getWeekdayLabel(dayIndex: Int): String {
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY + dayIndex)
-        }
-
-        return when (weekdayFormat) {
-            WeekdayFormat.ONE_LETTER ->
-                SimpleDateFormat("EEEEE", Locale.getDefault()).format(cal.time)
-
-            WeekdayFormat.TWO_LETTER ->
-                SimpleDateFormat("EE", Locale.getDefault()).format(cal.time)
-                    .take(2)
-
-            WeekdayFormat.THREE_LETTER ->
-                SimpleDateFormat("EEE", Locale.getDefault()).format(cal.time)
-
-            WeekdayFormat.FULL ->
-                SimpleDateFormat("EEEE", Locale.getDefault()).format(cal.time)
-        }
-    }
-
-
-
-    private var cellWidth = 0f
-    private var cellHeight = 0f
-    private val headerHeight
-        get() = calendarHeaderTextSize * 1.8f + headerBottomMargin
-    private val weekdaysHeaderHeight get() = calendarWeekdayTextSize * 1.6f
-
-
-    // Added margin for date labels
-    private val dateLabelTopMargin = 15f // Adjust this value for more or less margin
-    private val selectedShapePadding = 1.5f // Adjust this value to make the selected circle/roundRect smaller or larger
-
-    // Today's date, normalized to start of day, for comparison with past dates
-    private val todayNormalized = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-    }.time
-
-    // GestureDetector to handle clicks
     private val gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onSingleTapUp(e: MotionEvent): Boolean {
             handleTap(e.x, e.y)
@@ -262,208 +147,144 @@ class CalendarCanvasView @JvmOverloads constructor(
             return true
         }
 
-        override fun onDown(e: MotionEvent): Boolean {
-            return true
-        }
+        override fun onDown(e: MotionEvent): Boolean = true
     }).apply {
-        setIsLongpressEnabled(false) // Disable long press to make scrolling smoother
+        setIsLongpressEnabled(false)
     }
 
     init {
-        // Initialize with default min/max dates if needed, or set them externally
-        val today = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        applyConfig(_config)
+    }
+
+    fun applyConfig(newConfig: CalendarConfig) {
+        _config = newConfig
+
+        // Apply month header appearance
+        applyTextAppearance(headerPaint, newConfig.monthHeaderAppearance)
+
+        // Apply weekday appearance
+        applyTextAppearance(weekDayPaint, newConfig.weekdayAppearance)
+
+        // Apply date text appearance
+        applyTextAppearance(dayTextPaint, newConfig.dateTextAppearance)
+
+        // Apply date label appearance
+        applyTextAppearance(dateLabelPaint, newConfig.dateLabelAppearance)
+
+        // Apply colors
+        selectedDayPaint.color = newConfig.selectedDayColor
+        rangeBackgroundPaint.color = newConfig.rangeBackgroundColor
+
+        // Set min/max dates
+        minSelectableDate = newConfig.minDate?.normalizeDate()
+        maxSelectableDate = newConfig.maxDate?.let {
+            Calendar.getInstance().apply {
+                time = it
+                set(Calendar.HOUR_OF_DAY, 23)
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }.time
+        }?.normalizeDate()
+
+        // Update showWeekdayLabels
+        showWeekdayLabels = newConfig.showWeekdaysInsideMonth
+
+        // Update monthLabelAlignment
+        monthLabelAlignment = newConfig.monthLabelAlignment
+
+        invalidate()
+        requestLayout()
+    }
+
+    private fun applyTextAppearance(paint: Paint, appearance: TextAppearance) {
+        paint.textSize = appearance.textSizeSP.spToPx()
+        paint.color = appearance.textColor
+
+        val style = when {
+            appearance.isBold && appearance.isItalic -> Typeface.BOLD_ITALIC
+            appearance.isBold -> Typeface.BOLD
+            appearance.isItalic -> Typeface.ITALIC
+            else -> Typeface.NORMAL
         }
-        val fourteenMonthsLater = Calendar.getInstance().apply {
-            time = today.time
-            add(Calendar.MONTH, 14)
-            set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH))
-            set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
+
+        val typeface = appearance.typeface ?: Typeface.DEFAULT
+        paint.typeface = Typeface.create(typeface, style)
+    }
+
+    fun getWeekdayLabel(dayIndex: Int): String {
+        val cal = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY + dayIndex)
         }
-        minSelectableDate = today.time
-        maxSelectableDate = fourteenMonthsLater.time
-    }
 
-    fun setDayTextColor(colorResId: Int) {
-        dayTextPaint.color = ContextCompat.getColor(context, colorResId)
-        dayTextPaint.textSize = calendarDayTextSize
-        invalidate()
-    }
-
-    fun setDateLabelColor(colorResId: Int) {
-        dateLabelPaint.color = ContextCompat.getColor(context, colorResId)
-        dateLabelPaint.textSize = calendarDateLabelTextSize
-        invalidate()
-    }
-
-    fun setSelectedDayColor(colorResId: Int) {
-        selectedDayPaint.color = ContextCompat.getColor(context, colorResId)
-        invalidate()
-    }
-
-    fun setRangeBackgroundColor(colorResId: Int) {
-        rangeBackgroundPaint.color = ContextCompat.getColor(context, colorResId)
-        invalidate()
-    }
-
-    fun setHeaderColor(colorResId: Int) {
-        headerPaint.color = ContextCompat.getColor(context, colorResId)
-        invalidate()
-    }
-
-    fun setWeekDayColor(colorResId: Int) {
-        weekDayPaint.color = ContextCompat.getColor(context, colorResId)
-        invalidate()
-    }
-
-    fun setRangeTextColor(colorResId: Int) {
-        rangeTextColor = ContextCompat.getColor(context, colorResId)
-        invalidate()
-    }
-
-    fun setRangeEdgeTextColor(colorResId: Int) {
-        rangeEdgeTextColor = ContextCompat.getColor(context, colorResId)
-        invalidate()
-    }
-
-    fun setRangeMiddleTextColor(colorResId: Int) {
-        rangeMiddleTextColor = ContextCompat.getColor(context, colorResId)
-        invalidate()
-    }
-
-
-    fun setWeekdayFormat(format: WeekdayFormat) {
-        weekdayFormat = format
-        invalidate()
-    }
-
-
-
-
-
-    fun setMinMaxDates(minDate: Date, maxDate: Date) {
-        this.minSelectableDate = minDate
-        this.maxSelectableDate = maxDate
-        invalidate() // Redraw the calendar
-    }
-
-
-
-    /**
-     * Clears all existing custom date labels.
-     */
-    fun clearDateLabels() {
-        customDateLabels.clear()
-        invalidate()
-    }
-
-    /**
-     * Sets custom labels for multiple dates at once.
-     * Pass a list of DateLabel objects.
-     */
-    fun setDateLabels(labels: List<DateLabel>) {
-        customDateLabels.clear() // Clear existing ones
-        labels.forEach { label ->
-            customDateLabels[label.date.normalizeDate()] = DateLabel(label.date.normalizeDate(), label.text)
+        return when (_config.weekdayFormat) {
+            WeekdayFormat.ONE_LETTER ->
+                SimpleDateFormat("EEEEE", Locale.getDefault()).format(cal.time)
+            WeekdayFormat.TWO_LETTER ->
+                SimpleDateFormat("EE", Locale.getDefault()).format(cal.time).take(2)
+            WeekdayFormat.THREE_LETTER ->
+                SimpleDateFormat("EEE", Locale.getDefault()).format(cal.time)
+            WeekdayFormat.FULL ->
+                SimpleDateFormat("EEEE", Locale.getDefault()).format(cal.time)
         }
-        invalidate()
     }
 
     private fun getNumberOfWeeksInMonth(month: Calendar): Int {
         val tempCal = month.clone() as Calendar
-        tempCal.set(Calendar.DAY_OF_MONTH, 1) // Go to the first day of the month
-
-        // Get the day of the week for the 1st of the month (1=Sunday, 7=Saturday)
+        tempCal.set(Calendar.DAY_OF_MONTH, 1)
         val firstDayOfWeek = tempCal.get(Calendar.DAY_OF_WEEK)
-
-        // Get the total days in the month
         val daysInMonth = tempCal.getActualMaximum(Calendar.DAY_OF_MONTH)
-
-        // Calculate offset for the first week (days before the 1st)
-        val offset = (firstDayOfWeek - Calendar.SUNDAY + 7) % 7 // Adjust to make Sunday=0, Monday=1, etc. if needed, or simply use firstDayOfWeek -1 if Sunday is 1st day.
-        // Using Calendar.SUNDAY as first day of week gives us a correct 0-6 index for days before first day of month.
-        // Total slots needed: offset (for days before 1st) + daysInMonth
+        val offset = (firstDayOfWeek - Calendar.SUNDAY + 7) % 7
         val totalSlots = offset + daysInMonth
-
-        // Calculate rows needed (ceil division)
-        return (totalSlots + 6) / 7 // Integer division trick for ceiling
+        return (totalSlots + 6) / 7
     }
-
-
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
-        cellWidth = w / 7f
-
-    }
-
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-
         val widthSize = MeasureSpec.getSize(widthMeasureSpec)
         val heightMode = MeasureSpec.getMode(heightMeasureSpec)
         val heightSize = MeasureSpec.getSize(heightMeasureSpec)
 
         val rows = getNumberOfWeeksInMonth(displayedMonth)
 
-        // This is your "wrap_content" truth
-        val baseCellHeight = if (resources.configuration.smallestScreenWidthDp >= 600) {
-            180f   // tablets
-        } else {
-            150f   // phones
-        }
+        // Base cell height from config (converted from dp to px)
+        val baseCellHeight = _config.cellHeightDP.dpToPx()
 
-        // ---- FINAL CELL HEIGHT DECISION ----
-        val finalCellHeight = when (heightMode) {
+        // Calculate desired height
+        val desiredHeight = (
+                headerHeight +
+                        (if (showWeekdayLabels) weekdaysHeaderHeight else 16.dpToPx()) +
+                        rows * baseCellHeight
+                ).toInt()
 
-            MeasureSpec.EXACTLY -> {
-                // Parent is forcing a height (match_parent / fixed dp)
-                val availableHeight =
-                    heightSize - headerHeight - weekdaysHeaderHeight
-
-                // Distribute but don't stretch like garbage
-                (availableHeight / rows.toFloat())
-                    .coerceAtMost(baseCellHeight)
-                    .coerceAtLeast(baseCellHeight * 0.85f)
-            }
-
-            MeasureSpec.AT_MOST,
-            MeasureSpec.UNSPECIFIED -> {
-                // wrap_content → WE decide
-                baseCellHeight
-            }
-
-            else -> baseCellHeight
-        }
-
-        // ---- CALCULATE DESIRED HEIGHT FROM CONTENT ----
-        val desiredHeight =
-            (headerHeight +
-                    (if (showWeekdayLabels) weekdaysHeaderHeight else minHeaderToDatesSpacing) +
-                    rows * finalCellHeight).toInt()
-
-
-
+        // Set measured dimensions
         setMeasuredDimension(
             resolveSize(widthSize, widthMeasureSpec),
             resolveSize(desiredHeight, heightMeasureSpec)
         )
 
-        // Persist for onDraw()
-        cellHeight = finalCellHeight
+        // Update cell dimensions
         cellWidth = widthSize / 7f
+        cellHeight = baseCellHeight
     }
 
-
-
-
     override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-
         if (width == 0 || height == 0) return
 
-        val rangeBandHeight = cellHeight * 0.85f
+        val rangeBandHeight = cellHeight * _config.rangeBandHeightScale
 
-        // 1. Draw Month and Year Header
+        // Draw Month Header
+        drawMonthHeader(canvas)
+
+        // Draw Weekday Headers
+        if (showWeekdayLabels) {
+            drawWeekdayHeaders(canvas)
+        }
+
+        // Draw Calendar Days
+        drawCalendarDays(canvas, rangeBandHeight)
+    }
+
+    private fun drawMonthHeader(canvas: Canvas) {
         val headerText = dateFormatMonthYear.format(displayedMonth.time)
         val headerY = headerHeight / 2f + headerPaint.textSize / 3
 
@@ -483,21 +304,20 @@ class CalendarCanvasView @JvmOverloads constructor(
         }
 
         canvas.drawText(headerText, headerX, headerY, headerPaint)
+    }
 
-        // 2. Draw Weekday Headers
-        // 2. Draw Weekday Headers
-        if (showWeekdayLabels) {
-            for (i in 0 until 7) {
-                val x = cellWidth / 2f + i * cellWidth
-                val y = headerHeight + weekdaysHeaderHeight / 2f + weekDayPaint.textSize / 3
-                val weekText = getWeekdayLabel(i)
-                canvas.drawText(weekText, x, y, weekDayPaint)
-            }
+    private fun drawWeekdayHeaders(canvas: Canvas) {
+        for (i in 0 until 7) {
+            val x = cellWidth / 2f + i * cellWidth
+            val y = headerHeight + weekdaysHeaderHeight / 2f + weekDayPaint.textSize / 3
+            canvas.drawText(getWeekdayLabel(i), x, y, weekDayPaint)
         }
+    }
 
-        val startY = headerHeight + (if (showWeekdayLabels) weekdaysHeaderHeight else minHeaderToDatesSpacing)
+    private fun drawCalendarDays(canvas: Canvas, rangeBandHeight: Float) {
+        val startY = headerHeight +
+                (if (showWeekdayLabels) weekdaysHeaderHeight else 16.dpToPx())
 
-        // 3. Draw Calendar Days
         val calendar = displayedMonth.clone() as Calendar
         calendar.set(Calendar.DAY_OF_MONTH, 1)
         val firstDayOfMonth = calendar.get(Calendar.DAY_OF_WEEK)
@@ -505,15 +325,12 @@ class CalendarCanvasView @JvmOverloads constructor(
 
         val originalDayTextColor = dayTextPaint.color
         val originalDateLabelColor = dateLabelPaint.color
-
-        // MODIFIED: Use dynamic number of rows
         val numRowsToDraw = getNumberOfWeeksInMonth(displayedMonth)
 
         for (row in 0 until numRowsToDraw) {
             for (col in 0 until 7) {
                 val x = col * cellWidth
                 val y = startY + row * cellHeight
-
 
                 val dayDate = calendar.time.normalizeDate()
                 val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
@@ -522,153 +339,196 @@ class CalendarCanvasView @JvmOverloads constructor(
                 val isSelectable = isDateSelectable(dayDate)
                 val isPastDate = dayDate.before(todayNormalized)
 
-                val currentDayIsSelected = (selectedStartDate != null && isSameDay(dayDate, selectedStartDate)) ||
-                        (selectedEndDate != null && isSameDay(dayDate, selectedEndDate)) ||
-                        (selectedStartDate != null && selectedEndDate != null &&
-                                dayDate.after(selectedStartDate) && dayDate.before(selectedEndDate))
-
-                // Create basic cell rect without padding for selection drawing
-                val cellRectF = RectF(x, y, x + cellWidth, y + cellHeight)
-
-                // For circled selection, we need a smaller rect for the circle
-                val circleRectF = RectF(
-                    x + selectedShapePadding,
-                    y + selectedShapePadding,
-                    x + cellWidth - selectedShapePadding,
-                    y + cellHeight - selectedShapePadding
-                )
-                val rangeCenterY = y + cellHeight / 2f
-                val rangeRectTop = rangeCenterY - rangeBandHeight / 2f
-                val rangeRectBottom = rangeCenterY + rangeBandHeight / 2f
-
-
-                val circleRadius = min(circleRectF.width(), circleRectF.height()) / 2f
-
-                // Determine selection states
                 val isStartDate = selectedStartDate != null && isSameDay(dayDate, selectedStartDate)
                 val isEndDate = selectedEndDate != null && isSameDay(dayDate, selectedEndDate)
                 val isDateBetweenRange = selectedStartDate != null && selectedEndDate != null &&
                         dayDate.after(selectedStartDate) && dayDate.before(selectedEndDate)
 
+                val cellRectF = RectF(x, y, x + cellWidth, y + cellHeight)
+                val rangeCenterY = y + cellHeight / 2f
+                val rangeRectTop = rangeCenterY - rangeBandHeight / 2f
+                val rangeRectBottom = rangeCenterY + rangeBandHeight / 2f
+
                 if (isCurrentMonth) {
-                    // FIX 1: Draw range background first (before individual date circles)
-                    // ---- RANGE BACKGROUND (NO GAPS) ----
-                    if (selectedStartDate != null && selectedEndDate != null) {
+                    // FIXED: Draw range background BEFORE drawing date circles
+                    drawRangeBackground(canvas, cellRectF, rangeRectTop, rangeRectBottom,
+                        isStartDate, isEndDate, isDateBetweenRange)
 
-                        when {
-                            isStartDate && !isEndDate -> {
-                                canvas.drawRect(
-                                    cellRectF.centerX(),
-                                    rangeRectTop,
-                                    cellRectF.right,
-                                    rangeRectBottom,
-                                    rangeBackgroundPaint
-                                )
-                            }
-
-                            isEndDate && !isStartDate -> {
-                                canvas.drawRect(
-                                    cellRectF.left,
-                                    rangeRectTop,
-                                    cellRectF.centerX(),
-                                    rangeRectBottom,
-                                    rangeBackgroundPaint
-                                )
-                            }
-
-                            isDateBetweenRange -> {
-                                canvas.drawRect(
-                                    cellRectF.left,
-                                    rangeRectTop,
-                                    cellRectF.right,
-                                    rangeRectBottom,
-                                    rangeBackgroundPaint
-                                )
-                            }
-                        }
-
-                    }
-
-
-                    // FIX 2: Draw circled dates for start and end
+                    // FIXED: Draw selected circles - this was missing!
                     if (isStartDate || isEndDate) {
-                        // Draw circle for start/end dates
-                        canvas.drawCircle(
-                            circleRectF.centerX(),
-                            circleRectF.centerY(),
-                            circleRadius,
-                            selectedDayPaint
-                        )
+                        drawSelectedCircle(canvas, cellRectF)
                     }
 
-                    // Determine text color
-                    val dayTextColor = when {
-                        !isSelectable -> disabledDateColor
-                        isStartDate || isEndDate -> rangeEdgeTextColor
-                        isDateBetweenRange -> rangeMiddleTextColor
-                        isToday -> todayColor
-                        else -> originalDayTextColor
-                    }
+                    // Draw date text
+                    drawDateText(canvas, cellRectF, dayOfMonth,
+                        isSelectable, isStartDate || isEndDate, isDateBetweenRange, isToday)
 
-
-
-                    dayTextPaint.color = dayTextColor
-                    val centerX = x + cellWidth / 2
-                    val dayTextCenterY = y + cellHeight / 2 - ((dayTextPaint.descent() + dayTextPaint.ascent()) / 2)
-                    canvas.drawText(dayOfMonth.toString(), centerX, dayTextCenterY, dayTextPaint)
-
-                    // Draw date labels if any
-                    val normalizedDayDate = dayDate.normalizeDate()
+                    // Draw date label
                     if (!isPastDate) {
-                        customDateLabels[normalizedDayDate]?.let { label ->
-                            dateLabelPaint.color = if (currentDayIsSelected) {
-                                Color.WHITE
-                            } else {
-                                originalDateLabelColor
-                            }
-                            canvas.drawText(
-                                label.text,
-                                centerX,
-                                dayTextCenterY + dayTextPaint.descent() + dateLabelTopMargin + (dateLabelPaint.textSize / 2),
-                                dateLabelPaint
-                            )
-                        }
+                        drawDateLabel(
+                            canvas,
+                            cellRectF,
+                            dayDate,
+                            isStartDate,
+                            isEndDate
+                        )
                     }
                 }
 
                 calendar.add(Calendar.DAY_OF_MONTH, 1)
             }
         }
+
         dayTextPaint.color = originalDayTextColor
         dateLabelPaint.color = originalDateLabelColor
     }
 
+    private fun drawRangeBackground(
+        canvas: Canvas,
+        cellRectF: RectF,
+        rangeRectTop: Float,
+        rangeRectBottom: Float,
+        isStartDate: Boolean,
+        isEndDate: Boolean,
+        isDateBetweenRange: Boolean
+    ) {
+        // FIXED: Check if we have a valid range (not same day)
+        val isRangeValid = selectedStartDate != null &&
+                selectedEndDate != null &&
+                !isSameDay(selectedStartDate, selectedEndDate)
+
+        if (isRangeValid) {
+            when {
+                isStartDate && !isEndDate -> {
+                    // Draw right half for start date
+                    canvas.drawRect(
+                        cellRectF.centerX(),
+                        rangeRectTop,
+                        cellRectF.right,
+                        rangeRectBottom,
+                        rangeBackgroundPaint
+                    )
+                }
+                isEndDate && !isStartDate -> {
+                    // Draw left half for end date
+                    canvas.drawRect(
+                        cellRectF.left,
+                        rangeRectTop,
+                        cellRectF.centerX(),
+                        rangeRectBottom,
+                        rangeBackgroundPaint
+                    )
+                }
+                isDateBetweenRange -> {
+                    // Draw full width for dates between range
+                    canvas.drawRect(
+                        cellRectF.left,
+                        rangeRectTop,
+                        cellRectF.right,
+                        rangeRectBottom,
+                        rangeBackgroundPaint
+                    )
+                }
+            }
+        }
+    }
+
+    private fun drawSelectedCircle(canvas: Canvas, cellRectF: RectF) {
+        val padding = cellRectF.width() * (1 - _config.selectedCircleScale) / 2
+        val circleRectF = RectF(
+            cellRectF.left + padding,
+            cellRectF.top + padding,
+            cellRectF.right - padding,
+            cellRectF.bottom - padding
+        )
+        canvas.drawCircle(
+            circleRectF.centerX(),
+            circleRectF.centerY(),
+            min(circleRectF.width(), circleRectF.height()) / 2f,
+            selectedDayPaint
+        )
+    }
+
+    private fun drawDateText(
+        canvas: Canvas,
+        cellRectF: RectF,
+        dayOfMonth: Int,
+        isSelectable: Boolean,
+        isEdgeDate: Boolean,
+        isBetweenRange: Boolean,
+        isToday: Boolean
+    ) {
+        val textColor = when {
+            !isSelectable -> _config.disabledDateColor
+            isEdgeDate -> _config.selectedDayTextColor
+            isBetweenRange -> _config.rangeMiddleTextColor
+            isToday -> _config.todayColor
+            else -> _config.dateTextAppearance.textColor
+        }
+
+        dayTextPaint.color = textColor
+        val centerX = cellRectF.centerX()
+        val dayTextCenterY = cellRectF.centerY() -
+                ((dayTextPaint.descent() + dayTextPaint.ascent()) / 2)
+
+        canvas.drawText(dayOfMonth.toString(), centerX, dayTextCenterY, dayTextPaint)
+    }
+
+    private fun drawDateLabel(
+        canvas: Canvas,
+        cellRectF: RectF,
+        dayDate: Date,
+        isStartDate: Boolean,
+        isEndDate: Boolean
+    ) {
+        customDateLabels[dayDate.normalizeDate()]?.let { label ->
+            val centerX = cellRectF.centerX()
+            val dayTextCenterY = cellRectF.centerY() -
+                    ((dayTextPaint.descent() + dayTextPaint.ascent()) / 2)
+
+            dateLabelPaint.color = if (isStartDate || isEndDate) {
+                _config.selectedDayTextColor // Use config color instead of hardcoded white
+            } else {
+                _config.dateLabelAppearance.textColor
+            }
+
+            canvas.drawText(
+                label.text,
+                centerX,
+                dayTextCenterY + dayTextPaint.descent() + dateLabelTopMargin +
+                        (dateLabelPaint.textSize / 2),
+                dateLabelPaint
+            )
+        }
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // Handle scroll for date selection if selectedStartDate is already set and selectedEndDate is null
-        if (event.action == MotionEvent.ACTION_MOVE && selectedStartDate != null && selectedEndDate == null) {
+        if (event.action == MotionEvent.ACTION_MOVE &&
+            selectedStartDate != null &&
+            selectedEndDate == null) {
             handleTap(event.x, event.y, isDrag = true)
-            return true // Consume the event for dragging
+            return true
         }
 
         val result = gestureDetector.onTouchEvent(event)
 
-        // For ACTION_UP, if we were dragging, consider the range selected
         if (event.action == MotionEvent.ACTION_UP &&
             selectedStartDate != null &&
-            selectedEndDate != null
-        ) {
+            selectedEndDate != null) {
             onDateRangeSelectedListener?.onDateRangeSelected(
                 selectedStartDate!!,
                 selectedEndDate!!
             )
         }
 
-
         return result || super.onTouchEvent(event)
     }
 
     private fun handleTap(x: Float, y: Float, isDrag: Boolean = false) {
-        val row = ((y - headerHeight - weekdaysHeaderHeight) / cellHeight).toInt()
+        val startY = headerHeight +
+                (if (showWeekdayLabels) weekdaysHeaderHeight else 16.dpToPx())
+
+        val row = ((y - startY) / cellHeight).toInt()
         val col = (x / cellWidth).toInt()
 
         val numRowsDisplayed = getNumberOfWeeksInMonth(displayedMonth)
@@ -680,59 +540,56 @@ class CalendarCanvasView @JvmOverloads constructor(
         val firstDayOfMonthOffset = calendar.get(Calendar.DAY_OF_WEEK) - 1
         calendar.add(Calendar.DAY_OF_MONTH, (row * 7 + col) - firstDayOfMonthOffset)
 
-        val tappedDate = calendar.time.normalizeDate() // Use the top-level normalizeDate()
+        val tappedDate = calendar.time.normalizeDate()
 
         if (!isDateSelectable(tappedDate)) {
             onDateRangeSelectedListener?.onInvalidDateSelected(tappedDate)
             return
         }
 
+        // Handle date selection logic...
+        handleDateSelection(tappedDate)
+        invalidate()
+    }
+
+    private fun Int.dpToPx(): Float {
+        return this.toFloat().dpToPx()
+    }
+
+
+    private fun handleDateSelection(tappedDate: Date) {
         when {
-            // 1️⃣ First tap → start = end
             selectedStartDate == null -> {
                 selectedStartDate = tappedDate
                 selectedEndDate = tappedDate
-
                 onDateRangeSelectedListener?.onDateSelectionChanged(
                     selectedStartDate,
                     selectedEndDate
                 )
             }
-
-            // 2️⃣ Second tap → expand or reset
             selectedStartDate != null &&
                     selectedEndDate != null &&
                     isSameDay(selectedStartDate, selectedEndDate) -> {
-
                 if (tappedDate.before(selectedStartDate)) {
-                    // backward → new start only
                     selectedStartDate = tappedDate
                     selectedEndDate = tappedDate
                 } else {
-                    // forward → form range
                     selectedEndDate = tappedDate
                 }
-
                 onDateRangeSelectedListener?.onDateSelectionChanged(
                     selectedStartDate,
                     selectedEndDate
                 )
             }
-
-
-            // 3️⃣ Third tap → reset and start over
             else -> {
                 selectedStartDate = tappedDate
                 selectedEndDate = tappedDate
-
                 onDateRangeSelectedListener?.onDateSelectionChanged(
                     selectedStartDate,
                     selectedEndDate
                 )
             }
         }
-
-        invalidate() // Force redraw
     }
 
     private fun isSameDay(date1: Date?, date2: Date?): Boolean {
@@ -744,22 +601,38 @@ class CalendarCanvasView @JvmOverloads constructor(
                 cal1.get(Calendar.DAY_OF_MONTH) == cal2.get(Calendar.DAY_OF_MONTH)
     }
 
+    private val todayNormalized = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.time
+
     private fun isDateSelectable(date: Date): Boolean {
         val normalizedDate = date.normalizeDate()
-
         val normalizedMin = minSelectableDate?.normalizeDate()
-        val normalizedMax = maxSelectableDate?.let {
-            Calendar.getInstance().apply {
-                time = it
-                set(Calendar.HOUR_OF_DAY, 23); set(Calendar.MINUTE, 59); set(Calendar.SECOND, 59); set(Calendar.MILLISECOND, 999)
-            }.time
-        }?.normalizeDate()
+        val normalizedMax = maxSelectableDate?.normalizeDate()
 
-        return (normalizedMin == null || !normalizedDate.before(normalizedMin)) &&
-                (normalizedMax == null || !normalizedDate.after(normalizedMax))
+        val isAfterMin = normalizedMin == null || !normalizedDate.before(normalizedMin)
+        val isBeforeMax = normalizedMax == null || !normalizedDate.after(normalizedMax)
+        val isNotPast = !_config.disablePastDates || !normalizedDate.before(todayNormalized)
+
+        return isAfterMin && isBeforeMax && isNotPast
     }
 
+    fun setDateLabels(labels: List<DateLabel>) {
+        customDateLabels.clear()
+        labels.forEach { label ->
+            customDateLabels[label.date.normalizeDate()] =
+                DateLabel(label.date.normalizeDate(), label.text)
+        }
+        invalidate()
+    }
 
+    fun clearDateLabels() {
+        customDateLabels.clear()
+        invalidate()
+    }
 }
 
 fun Date.normalizeDate(): Date {
@@ -771,12 +644,4 @@ fun Date.normalizeDate(): Date {
     return cal.time
 }
 
-fun Calendar.normalizeMonth(): Calendar {
-    val normalized = this.clone() as Calendar
-    normalized.set(Calendar.DAY_OF_MONTH, 1)
-    normalized.set(Calendar.HOUR_OF_DAY, 0)
-    normalized.set(Calendar.MINUTE, 0)
-    normalized.set(Calendar.SECOND, 0)
-    normalized.set(Calendar.MILLISECOND, 0)
-    return normalized
-}
+data class DateLabel(val date: Date, val text: String)
